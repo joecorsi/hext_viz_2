@@ -53,11 +53,11 @@ class serialPlot:
         self.plotTimer = int((currentTimer - self.previousTimer) * 1000)
         self.previousTimer = currentTimer
         timeText.set_text('Interval: ' + str(self.plotTimer) + 'ms')
-        val, = struct.unpack('d', self.rawData)
+        # val, = struct.unpack('d', self.rawData)
         # , after val unpacks first value of tuple and assigns to val (terse)
         mv = memoryview(self.rawData).cast('d')  # splits rawData into 8 byte chunks and casts to float ('d')
-        print(mv[1])
-        self.data.append(val)
+        # print(mv[1])
+        self.data.append(mv[1])
         lines.set_data(range(self.plotMaxLength), self.data)
         self.csvData.append(self.data[-1])
 
@@ -98,9 +98,9 @@ def main():
                                    interval=pltInterval)
 
     plt.legend(loc="upper left")
-    # plt.show()
-    #
-    # s.close()
+    plt.show()
+
+    s.close()
 
 
 if __name__ == '__main__':
