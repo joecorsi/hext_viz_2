@@ -12,13 +12,16 @@ import pandas as pd
 
 
 class serialPlot:
-    def __init__(self, serialPort="COM3", serialBaud=9600, plotLength=100, dataNumBytes=1):
+    def __init__(self, serialPort="COM3", serialBaud=9600, plotLength=100, dataNumBytes=1, numPlots=1):
         self.port = serialPort
         self.baud = serialBaud
         self.plotMaxLength = plotLength
         self.dataNumBytes = dataNumBytes
+        self.numPlots = numPlots
         self.rawData = bytearray(dataNumBytes)
-        self.data = collections.deque([0] * plotLength, maxlen=plotLength)
+        self.data = []
+        for i in range(numPlots):  # give an array for each type of data and store them in a list
+            self.data.append(collections.deque([0] * plotLength, maxlen=plotLength))
         self.isRun = True
         self.isReceiving = False
         self.thread = None
@@ -56,10 +59,10 @@ class serialPlot:
         # val, = struct.unpack('d', self.rawData)
         # , after val unpacks first value of tuple and assigns to val (terse)
         mv = memoryview(self.rawData).cast('d')  # splits rawData into 8 byte chunks and casts to float ('d')
-        # print(mv[1])
-        self.data.append(mv[1])
-        lines.set_data(range(self.plotMaxLength), self.data)
-        self.csvData.append(self.data[-1])
+        for i in range(self.numPlots):
+            self.data[i].append(mv[i])
+            lines[i].set_data(range(self.plotMaxLength), self.data[i])
+        self.csvData.append([self.data[0][-1], self.data[1][-1]])
 
     def close(self):
         self.isRun = False
@@ -74,24 +77,32 @@ def main():
     portName = 'COM3'
     baudRate = 115200
     maxPlotLength = 100
-    dataNumBytes = 16  # number of bytes of 1 data point
-    s = serialPlot(portName, baudRate, maxPlotLength, dataNumBytes)
+    dataNumBytes = 16  # number of bytes of 1 data point, 8 bytes per value
+    numPlots = 2 # number of 8 byte plots
+    s = serialPlot(portName, baudRate, maxPlotLength, dataNumBytes, numPlots)
     s.readSerialStart()
 
     # plotting
-    pltInterval = 50
+    pltInterval = 25
     xmin = 0
     xmax = maxPlotLength
     ymin = -(1)
     ymax = 1
     fig = plt.figure()
+
+    # don't quite know what this does, sets scales maybe?
     ax = plt.axes(xlim=(xmin, xmax), ylim=(float(ymin - (ymax - ymin) / 10), float(ymax + (ymax - ymin) / 10)))
 
-    lineLabel = 'x1 val'
+    lineLabel = ['x1', 'y1']
+    style = ['r-', 'c-']  # linestyles for the different plots
     timeText = ax.text(0.50, 0.95, '', transform=ax.transAxes)
-    lines = ax.plot([], [], label=lineLabel)[0]
-    lineValueText = ax.text(0.50, 0.90, '', transform=ax.transAxes)
+    lines = []
+    lineValueText = []
+    for i in range(numPlots):
+        lines.append(ax.plot([], [], style[i], label=lineLabel[i])[0])
+        lineValueText.append(ax.text(0.50, 0.90, '', transform=ax.transAxes))
 
+    # animate function, data come from getSerialData
     anim = animation.FuncAnimation(fig,
                                    s.getSerialData,
                                    fargs=(lines, lineValueText, lineLabel, timeText),  # fargs has to be a tuple
